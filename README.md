@@ -46,8 +46,8 @@ and run it with at least the following command  `docker run --device=<path to yo
 
                                          
 This is my first attemp to use python asyncio so excuse the bad code. Suggestions on how to improve that code are welcome.
-Little write up on this project can be found on www.geeks-r-us.de
+Little write up on this project can be found on https://geeks-r-us.de/2019/07/01/solarkarftwerk-im-smarthome-einbinden/
 
 Thx to Cyrill Brunschwiler for the work on the [scambus repository](https://github.com/CBrunsch/scambus) and the wmbus parser which is used in this project to parse the messeages.
 
-If you like this work consider of keeping me up at night and [buy me a coffee](https://www.buymeacoffee.com/YdV7B1rex) 
+If you like this work consider of keeping me up at night and [buy me a coffee](https://ko-fi.com/geeks_r_us) 
