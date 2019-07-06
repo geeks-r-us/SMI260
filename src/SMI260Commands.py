@@ -39,11 +39,13 @@ class SMI260Commands:
         return self.stick.build()
 
     def byte_from_address(self, address):
-        rotated = address[2:4] + " " + address[0:2]
+        padded = '{:06d}'.format(int(address))
+        rotated = padded[4:6] + " " + padded[2:4] + " " + padded[0:2]
         return bytearray.fromhex(rotated)
 
     def set_address(self, address, message):
-        byteaddress = self.byte_from_address(address)
-        message[3] = byteaddress[0]
-        message[4] = byteaddress[1]
+        byte_address = self.byte_from_address(address)
+        message[3] = byte_address[0]
+        message[4] = byte_address[1]
+        message[5] = byte_address[2]
         return message
