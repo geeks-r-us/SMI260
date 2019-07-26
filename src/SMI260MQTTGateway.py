@@ -65,9 +65,9 @@ def on_message(client, userdata, msg):
 def update_topic(data, state):
     frame = WMBusFrame()
     frame.parse(data, {})
-    byte_address = frame.address[0:2]
-    byte_address.reverse()
-    address = byte_address.hex()
+    byte_address = frame.address[0:3]
+
+    address = SMI260Commands.address_from_byte(byte_address)
     print("Manufacturer: " + str(frame.manufacturer.hex()))
     print("Address: " + address)
     frame.log(2)
@@ -181,7 +181,7 @@ async def main():
     mqtt_server = os.getenv('MQTTSERVER', '127.0.0.1')
     mqtt_port = os.getenv('MQTTSERVERPORT', 1883)
     poll_every = os.getenv('POLL', 5)
-    smi_list = os.getenv('SMI_LIST', '1234,2345').split(',')
+    smi_list = os.getenv('SMI_LIST', '11491').split(',')
 
     async_state = type('', (), {})()
     async_state.mqtt_connected = False

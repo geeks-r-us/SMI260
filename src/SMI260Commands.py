@@ -38,7 +38,13 @@ class SMI260Commands:
                                               bytearray.fromhex('5B B4 B0 00 00 00 00 01 02 51 0C 79 00 00 00 00 00 FF A7'))
         return self.stick.build()
 
-    def byte_from_address(self, address):
+    @staticmethod
+    def address_from_byte(byte_address):
+        byte_address.reverse()
+        return byte_address.hex().lstrip("0")
+
+    @staticmethod
+    def byte_from_address(address):
         padded = '{:06d}'.format(int(address))
         rotated = padded[4:6] + " " + padded[2:4] + " " + padded[0:2]
         return bytearray.fromhex(rotated)
