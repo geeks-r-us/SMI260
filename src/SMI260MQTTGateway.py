@@ -180,7 +180,7 @@ async def main():
     serial_port = os.getenv('SUNSTICKPORT', '/dev/ttyUSB0')
     mqtt_server = os.getenv('MQTTSERVER', '127.0.0.1')
     mqtt_port = os.getenv('MQTTSERVERPORT', 1883)
-    poll_every = os.getenv('POLL', 5)
+    poll_every = os.getenv('POLL', 120)
     smi_list = os.getenv('SMI_LIST', '11491').split(',')
 
     async_state = type('', (), {})()
