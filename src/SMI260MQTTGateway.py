@@ -132,6 +132,7 @@ class Communication(asyncio.Protocol):
                 await asyncio.sleep(0.15)
                 message = self.smi.query_settings(device)
                 self.transport.write(message)
+                await asyncio.sleep(0.15)
 
             await asyncio.sleep(self.state.poll_every)
 
