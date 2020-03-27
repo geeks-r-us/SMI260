@@ -1,0 +1,4 @@
+manifest-tool
+manifest-tool-*
+*.pyc
+*.tar
