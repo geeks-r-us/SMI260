@@ -8,7 +8,7 @@ COPY qemu-${ARCH}-static /usr/bin
 
 COPY ./requirements.txt /app/requirements.txt
 WORKDIR /app
-RUN apk add --no-cache alpine-sdk autoconf automake libtool
+RUN apk add --no-cache alpine-sdk autoconf automake libtool libffi-dev openssl-dev
 RUN pip3 install -r requirements.txt
 
 ADD ./src /app
