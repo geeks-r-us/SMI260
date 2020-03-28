@@ -1,5 +1,5 @@
 
-#!/bin/bash
+#!/bin/env bash
 
 # Register qemu-*-static for all supported processors except the 
 # current one, but also remove all registered binfmt_misc before
