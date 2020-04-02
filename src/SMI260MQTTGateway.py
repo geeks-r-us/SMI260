@@ -1,6 +1,7 @@
 import os
 import asyncio
 import copy
+import datetime
 import serial_asyncio
 import paho.mqtt.client as mqtt
 from IM871 import IM871, EndpointID, RadioLinkMessageIdentifier
@@ -146,7 +147,7 @@ class Communication(asyncio.Protocol):
         asyncio.ensure_future(self.query())
 
     def data_received(self, data):
-        print('data received', repr(data))
+        print('['+ datetime.datetime.now() + '] data received', repr(data))
         stick = IM871()
         stick.parse(data)
         if stick.endpoint_id == EndpointID.RADIOLINK_ID and (
@@ -195,6 +196,7 @@ async def main():
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     mqtt_client.connect(mqtt_server, mqtt_port, 60)
+    print('Connecting...')
     transport = None
     while True:
         mqtt_client.loop(0.1)
