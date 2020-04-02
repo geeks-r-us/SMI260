@@ -147,7 +147,7 @@ class Communication(asyncio.Protocol):
         asyncio.ensure_future(self.query())
 
     def data_received(self, data):
-        print('['+ datetime.datetime.now() + '] data received', repr(data))
+        print('['+ str(datetime.datetime.now()) + '] data received', repr(data))
         stick = IM871()
         stick.parse(data)
         if stick.endpoint_id == EndpointID.RADIOLINK_ID and (
