@@ -12,7 +12,7 @@ from functools import partial
 
 smi_list = []
 mqtt_common_topic = "SMI"
-mqtt_client = mqtt.Client()
+mqtt_client = mqtt.Client(client_id="SMI260MQTTGateway", clean_session=True, userdata=None, protocol=mqtt.MQTTv311)
 
 
 def build_mqtt_topic(device, topic):
@@ -133,7 +133,7 @@ class Communication(asyncio.Protocol):
                 await asyncio.sleep(0.15)
                 message = self.smi.query_settings(device)
                 self.transport.write(message)
-                await asyncio.sleep(0.15)
+                await asyncio.sleep(5)
 
             await asyncio.sleep(self.state.poll_every)
 

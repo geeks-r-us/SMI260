@@ -2,3 +2,5 @@ manifest-tool
 manifest-tool-*
 *.pyc
 *.tar
+/src/venv/
+/src/__pycache__/

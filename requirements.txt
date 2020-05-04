@@ -1,5 +1,5 @@
 pyserial_asyncio==0.4
 py_flags==1.1.2
 pycrypto==2.6.1
-paho_mqtt==1.4.0
+paho_mqtt==1.5.0
 pyserial==3.4
