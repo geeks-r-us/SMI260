@@ -35,6 +35,7 @@ MQTTSERVER       | IP of the MQTT brocker       | 127.0.0.1
 MQTTSERVERPORT   | port of the MQTT brocker     | 1883
 POLL             | duration to poll in seconds | 120
 SMI_LIST         | comma spearated list of last 4 digits of the inverter | 1234,2345
+DEBUG            | set debug output            | False
 
 ## Docker
 

@@ -8,7 +8,10 @@ from IM871 import IM871, EndpointID, RadioLinkMessageIdentifier
 from SMI260Commands import SMI260Commands
 from wmbus import WMBusFrame
 
+
 from functools import partial
+
+debug = False
 
 smi_list = []
 mqtt_common_topic = "SMI"
@@ -71,7 +74,8 @@ def update_topic(data, state):
     address = SMI260Commands.address_from_byte(byte_address)
     print("Manufacturer: " + str(frame.manufacturer.hex()))
     print("Address: " + address)
-    frame.log(2)
+    if debug:
+        frame.log(2)
     if address in smi_list:
         device = state.device_list[address]
         if len(data) == 33:
@@ -79,6 +83,7 @@ def update_topic(data, state):
             val = record.get_energy_in_wh()
             mqtt_client.publish(build_mqtt_topic(address, "Energy"), str(val))
             device["Energy"] = val
+            print("Energy: " + val)
 
             record = frame.records[1]
             val = record.get_power_in_w()
@@ -86,37 +91,43 @@ def update_topic(data, state):
             if maxval and val < (maxval + 5):  # sanitize values, empiric number due to swinging around max point + 5
                 mqtt_client.publish(build_mqtt_topic(address, "Power"), str(val))
                 device["Power"] = val
+                print("MaxPower : " + val)
 
         elif len(data) == 93:
             record = frame.records[0]
             val = record.get_power_in_w()
             mqtt_client.publish(build_mqtt_topic(address, "MaxPower"), str(val))
             device["MaxPower"] = val
+            print("MaxPower : " + val)
 
             record = frame.records[6]
             locval = copy.deepcopy(record.value)
             locval.reverse()
             # power on
             power_val = int(locval[9])  # maybe a side effect ?
-            device["PowerOn"] = power_val
             mqtt_client.publish(build_mqtt_topic(address, "PowerOn"), str(power_val))
+            device["PowerOn"] = power_val
+            print("PowerOn : " + str(val))
 
             # dc sec
             dc_val = int.from_bytes(locval[9:11], 'big') / 10
             mqtt_client.publish(build_mqtt_topic(address, "DCVoltage"), str(dc_val))
+            print("DCVoltage : " + str(dc_val))
 
             # temp dc/ac
             temp_dcac_val = int.from_bytes(locval[24:26], 'big') / 10
             mqtt_client.publish(build_mqtt_topic(address, "TemperatureDCAC"), str(temp_dcac_val))
+            print("TemperatureDCAC : " + str(temp_dcac_val))
 
             # temp dc/dc
             temp_dcdc_val = int.from_bytes(locval[36:38], 'big') / 10
             mqtt_client.publish(build_mqtt_topic(address, "TemperatureDCDC"), str(temp_dcdc_val))
+            print("TemperatureDCDC : " + str(temp_dcdc_val))
 
             # freq
             freq_val = int.from_bytes(locval[49:51], 'big') / 100
             mqtt_client.publish(build_mqtt_topic(address, "Frequency"), str(freq_val))
-
+            print("Frequency : " + str(freq_val))
 
 class Communication(asyncio.Protocol):
     def __init__(self, state):
@@ -128,11 +139,14 @@ class Communication(asyncio.Protocol):
     async def query(self):
         while True:
             for device in smi_list:
+                print("Query SMI " + str(device) + ":")
                 message = self.smi.query_state(device)
                 self.transport.write(message)
+                mqtt_client.loop(0.1)
                 await asyncio.sleep(0.15)
                 message = self.smi.query_settings(device)
                 self.transport.write(message)
+                mqtt_client.loop(0.1)
                 await asyncio.sleep(5)
 
             await asyncio.sleep(self.state.poll_every)
@@ -177,13 +191,14 @@ class Communication(asyncio.Protocol):
 
 
 async def main():
-    global smi_list
+    global smi_list, debug
 
     serial_port = os.getenv('SUNSTICKPORT', '/dev/ttyUSB0')
     mqtt_server = os.getenv('MQTTSERVER', '127.0.0.1')
     mqtt_port = os.getenv('MQTTSERVERPORT', 1883)
     poll_every = int(os.getenv('POLL', 120))
     smi_list = os.getenv('SMI_LIST', '11491').split(',')
+    debug = os.getenv('DEBUG', False)
 
     async_state = type('', (), {})()
     async_state.mqtt_connected = False
@@ -198,6 +213,7 @@ async def main():
     mqtt_client.connect(mqtt_server, mqtt_port, 60)
     print('Connecting...')
     transport = None
+    future = None
     while True:
         mqtt_client.loop(0.1)
         if async_state.mqtt_connected and transport is None:
@@ -205,7 +221,14 @@ async def main():
             loop = asyncio.get_event_loop()
             transport = serial_asyncio.create_serial_connection(loop, protocol, serial_port, baudrate=57600)
 
-            asyncio.ensure_future(transport)
+            future = asyncio.ensure_future(transport)
+        
+        if future is not None and future.done() :
+            if future.exception() is not None  and future.exception() is not asyncio.exceptions.InvalidStateError:
+                print(future.exception())
+                loop.stop()
+                quit(-1)
+        
         await asyncio.sleep(1)
 
 if __name__ == "__main__":
