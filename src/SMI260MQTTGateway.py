@@ -83,7 +83,7 @@ def update_topic(data, state):
             val = record.get_energy_in_wh()
             mqtt_client.publish(build_mqtt_topic(address, "Energy"), str(val))
             device["Energy"] = val
-            print("Energy: " + val)
+            print("Energy: " + str(val))
 
             record = frame.records[1]
             val = record.get_power_in_w()
@@ -91,14 +91,14 @@ def update_topic(data, state):
             if maxval and val < (maxval + 5):  # sanitize values, empiric number due to swinging around max point + 5
                 mqtt_client.publish(build_mqtt_topic(address, "Power"), str(val))
                 device["Power"] = val
-                print("MaxPower : " + val)
+                print("MaxPower : " + str(val))
 
         elif len(data) == 93:
             record = frame.records[0]
             val = record.get_power_in_w()
             mqtt_client.publish(build_mqtt_topic(address, "MaxPower"), str(val))
             device["MaxPower"] = val
-            print("MaxPower : " + val)
+            print("MaxPower : " + str(val))
 
             record = frame.records[6]
             locval = copy.deepcopy(record.value)
