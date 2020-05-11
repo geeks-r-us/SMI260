@@ -107,7 +107,7 @@ def update_topic(data, state):
             power_val = int(locval[9])  # maybe a side effect ?
             mqtt_client.publish(build_mqtt_topic(address, "PowerOn"), str(power_val))
             device["PowerOn"] = power_val
-            print("PowerOn : " + str(val))
+            print("PowerOn : " + str(power_val))
 
             # dc sec
             dc_val = int.from_bytes(locval[9:11], 'big') / 10
