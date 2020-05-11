@@ -1,0 +1,99 @@
+version: '3'
+
+services:
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb
+    ports:
+      - "8083:8083"
+      - "8086:8086"
+      - "8090:8090"
+    environment:
+      INFLUXDB_DATA_ENGINE: tsm1
+      INFLUXDB_REPORTING_DISABLED: 'false'
+      INFLUXDB_DB: SMI
+      INFLUXDB_USER: telegraf
+      INFLUXDB_USER_PASSWORD: telegraf
+    volumes:
+      - influx_data:/var/lib/influxdb
+    networks:
+      - local
+
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    links:
+      - influxdb
+      - mqtt
+    networks:
+      - local
+    depends_on:
+      - mqtt  
+    volumes:
+      - telegraph_config:/etc/telegraf
+
+  grafana:
+    image: grafana/grafana-arm32v7-linux:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_INSTALL_PLUGINS: "grafana-clock-panel,briangann-gauge-panel,natel-plotly-panel,grafana-simple-json-datasource,https://github.com/geeks-r-us/mqtt-panel/releases/download/v1.0.2/geeksrus-mqtt-panel-1.0.2.zip;mqtt-panel"
+    links:
+      - influxdb
+    networks:
+      - local  
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: always
+    
+  chronograf:
+    image: chronograf:latest
+    container_name: chronograf
+    ports:
+      - "8888:8888"
+    links:
+      - influxdb
+    networks:
+      - local
+    restart: always
+
+  mqtt:
+    image: eclipse-mosquitto
+    container_name: mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    networks:
+      - local
+    volumes:
+      - mqtt_config:/mosquitto/config
+    restart: always
+
+  smimqttgateway:
+    image: geeksrusde/smi260mqttgateway:latest-arm
+    container_name: smi260mqttgateway
+    environment: 
+      - MQTTSERVER=mqtt
+      - POLL=120
+      - SMI_LIST=1234,2345
+      - SUNSTICKPORT=/dev/ttyUSB0
+    links:
+      - mqtt
+    devices:
+      - /dev/ttyUSB0
+    depends_on:
+      - mqtt
+    networks:
+      - local
+    restart: always
+      
+volumes:
+    influx_data:
+    telegraph_config: 
+    grafana_data:
+    mqtt_config:
+    
+networks:
+  local:
+    driver: bridge

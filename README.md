@@ -23,7 +23,7 @@ SMI/<last 4 digits of inverter serial>/  | TemperatureDCDC | temperature of the 
 
 To setup install all dependencies: `pip3 install -r requirements.txt` 
 
-and then run it with  `python3 ./SMI260MQTTGateway.py`
+and then run it with  `python3.7 ./SMI260MQTTGateway.py`
 
 ## Settings
 You can configure the gateway ether by editing SMI260MQTTGateway.py with your settings (settings are in the lower part of the file) or you can set environment variables:
@@ -45,9 +45,11 @@ Build the container with `docker build -t smi260mqttgateway .`
 
 and run it with at least the following command  `docker run --device=<path to your USB stick> -e SMI_LIST="<list of inverters> smi260mqttgateway`
 
+Examples for a full stack can be found here [amd64](https://github.com/geeks-r-us/SMI260/blob/master/amd64.docker-compose.yml) [armv7](https://github.com/geeks-r-us/SMI260/blob/master/armv7.docker-compose.yml)
                                          
-This is my first attemp to use python asyncio so excuse the bad code. Suggestions on how to improve that code are welcome.
-Little write up on this project can be found on https://geeks-r-us.de/2019/07/01/solarkarftwerk-im-smarthome-einbinden/
+This is my first attempt to use python asyncio so excuse the bad code. Suggestions on how to improve that code are welcome.
+Little write up on this project can be found on https://geeks-r-us.de/2019/07/01/solarkarftwerk-im-smarthome-einbinden/ and
+https://geeks-r-us.de/2020/04/08/smi260-standalone-logger/
 
 Thx to Cyrill Brunschwiler for the work on the [scambus repository](https://github.com/CBrunsch/scambus) and the wmbus parser which is used in this project to parse the messeages.
 
