@@ -91,7 +91,7 @@ def update_topic(data, state):
             if maxval and val < (maxval + 5):  # sanitize values, empiric number due to swinging around max point + 5
                 mqtt_client.publish(build_mqtt_topic(address, "Power"), str(val))
                 device["Power"] = val
-                print("MaxPower : " + str(val))
+                print("Power : " + str(val))
 
         elif len(data) == 93:
             record = frame.records[0]
