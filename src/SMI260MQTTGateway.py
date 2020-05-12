@@ -79,6 +79,7 @@ def update_topic(data, state):
     if address in smi_list:
         device = state.device_list[address]
         if len(data) == 33:
+            print("State query result :")
             record = frame.records[0]
             val = record.get_energy_in_wh()
             mqtt_client.publish(build_mqtt_topic(address, "Energy"), str(val))
@@ -94,6 +95,7 @@ def update_topic(data, state):
                 print("Power : " + str(val))
 
         elif len(data) == 93:
+            print("Settings query result :")
             record = frame.records[0]
             val = record.get_power_in_w()
             mqtt_client.publish(build_mqtt_topic(address, "MaxPower"), str(val))
