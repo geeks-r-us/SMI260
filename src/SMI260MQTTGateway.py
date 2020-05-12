@@ -84,15 +84,15 @@ def update_topic(data, state):
             val = record.get_energy_in_wh()
             mqtt_client.publish(build_mqtt_topic(address, "Energy"), str(val))
             device["Energy"] = val
-            print("Energy: " + str(val))
+            print("\tEnergy: " + str(val))
 
             record = frame.records[1]
             val = record.get_power_in_w()
-            maxval = device["MaxPower"]
-            if maxval and val < (maxval + 5):  # sanitize values, empiric number due to swinging around max point + 5
-                mqtt_client.publish(build_mqtt_topic(address, "Power"), str(val))
-                device["Power"] = val
-                print("Power : " + str(val))
+            
+            #if maxval and val < (maxval + 5):  # sanitize values, empiric number due to swinging around max point + 5
+            mqtt_client.publish(build_mqtt_topic(address, "Power"), str(val))
+            device["Power"] = val
+            print("\tPower : " + str(val))
 
         elif len(data) == 93:
             print("Settings query result :")
@@ -100,7 +100,7 @@ def update_topic(data, state):
             val = record.get_power_in_w()
             mqtt_client.publish(build_mqtt_topic(address, "MaxPower"), str(val))
             device["MaxPower"] = val
-            print("MaxPower : " + str(val))
+            print("\tMaxPower : " + str(val))
 
             record = frame.records[6]
             locval = copy.deepcopy(record.value)
@@ -109,27 +109,30 @@ def update_topic(data, state):
             power_val = int(locval[9])  # maybe a side effect ?
             mqtt_client.publish(build_mqtt_topic(address, "PowerOn"), str(power_val))
             device["PowerOn"] = power_val
-            print("PowerOn : " + str(power_val))
+            print("\tPowerOn : " + str(power_val))
 
             # dc sec
             dc_val = int.from_bytes(locval[9:11], 'big') / 10
             mqtt_client.publish(build_mqtt_topic(address, "DCVoltage"), str(dc_val))
-            print("DCVoltage : " + str(dc_val))
+            print("\tDCVoltage : " + str(dc_val))
 
             # temp dc/ac
             temp_dcac_val = int.from_bytes(locval[24:26], 'big') / 10
             mqtt_client.publish(build_mqtt_topic(address, "TemperatureDCAC"), str(temp_dcac_val))
-            print("TemperatureDCAC : " + str(temp_dcac_val))
+            print("\tTemperatureDCAC : " + str(temp_dcac_val))
 
             # temp dc/dc
             temp_dcdc_val = int.from_bytes(locval[36:38], 'big') / 10
             mqtt_client.publish(build_mqtt_topic(address, "TemperatureDCDC"), str(temp_dcdc_val))
-            print("TemperatureDCDC : " + str(temp_dcdc_val))
+            print("\tTemperatureDCDC : " + str(temp_dcdc_val))
 
             # freq
             freq_val = int.from_bytes(locval[49:51], 'big') / 100
             mqtt_client.publish(build_mqtt_topic(address, "Frequency"), str(freq_val))
-            print("Frequency : " + str(freq_val))
+            print("\tFrequency : " + str(freq_val))
+
+def printhex(data):
+    print(' '.join('{:02x}'.format(x) for x in data))
 
 class Communication(asyncio.Protocol):
     def __init__(self, state):
@@ -141,11 +144,12 @@ class Communication(asyncio.Protocol):
     async def query(self):
         while True:
             for device in smi_list:
-                print("Query SMI " + str(device) + ":")
+                print("["+ str(datetime.datetime.now()) + "] query SMI " + str(device))
+                print("--------------------------------------------")
                 message = self.smi.query_state(device)
                 self.transport.write(message)
-                mqtt_client.loop(0.1)
-                await asyncio.sleep(0.15)
+                mqtt_client.loop(0.1)    
+                await asyncio.sleep(2)
                 message = self.smi.query_settings(device)
                 self.transport.write(message)
                 mqtt_client.loop(0.1)
@@ -163,21 +167,27 @@ class Communication(asyncio.Protocol):
         asyncio.ensure_future(self.query())
 
     def data_received(self, data):
-        print('['+ str(datetime.datetime.now()) + '] data received', repr(data))
+        print("["+ str(datetime.datetime.now()) + "] data received")
+        
+        if debug: 
+            
+            printhex(data)
+
         stick = IM871()
-        stick.parse(data)
-        if stick.endpoint_id == EndpointID.RADIOLINK_ID and (
-                stick.message_id == RadioLinkMessageIdentifier.RADIOLINK_MSG_WMBUSMSG_IND or
-                stick.message_id == RadioLinkMessageIdentifier.RADIOLINK_MSG_WMBUSMSG_REQ):
-            try:
-                update_topic(stick.get_wmbus_message(), self.state)
+        packets = stick.parse(data)
+        for packet in packets:
+            if packet.endpoint_id == EndpointID.RADIOLINK_ID and (
+                    packet.message_id == RadioLinkMessageIdentifier.RADIOLINK_MSG_WMBUSMSG_IND or
+                    packet.message_id == RadioLinkMessageIdentifier.RADIOLINK_MSG_WMBUSMSG_REQ):
+                try:
+                    update_topic(stick.get_wmbus_message(packet), self.state)
 
-            except Exception as ex:
-                print("Exception : ")
-                print(ex)
-                pass
+                except Exception as ex:
+                    print("Exception : ")
+                    print(ex)
+                    pass
 
-        print("--------------------------------------------")
+            print("--------------------------------------------")
 
     def connection_lost(self, exc):
         print('port closed')

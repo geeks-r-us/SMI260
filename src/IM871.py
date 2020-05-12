@@ -3,6 +3,7 @@
 from flags import Flags
 from array import array
 from enum import Enum
+import os
 
 SOF = 0xA5
 
@@ -66,7 +67,7 @@ class ControlFieldFlags(Flags):
     CRC16Field = 8
 
 
-class IM871:
+class Packet:
     def __init__(self):
         self.control_field = ControlFieldFlags.no_flags
         self.endpoint_id = EndpointID.DEVMGMT_ID
@@ -76,15 +77,19 @@ class IM871:
         self.timestamp = 0
         self.rssi = 0
 
-    def build(self):
+class IM871:
+    def __init__(self):
+        self.debug = os.getenv('DEBUG', False)
+
+    def build(self, packet):
         data = bytearray()
         data.append(SOF)
-        data.append(int(self.control_field) << 4 | self.endpoint_id.value & 0x0F)
-        data.append(self.message_id.value)
-        data.append(len(self.payload) & 0xff)
-        data.extend(self.payload)
+        data.append(int(packet.control_field) << 4 | packet.endpoint_id.value & 0x0F)
+        data.append(packet.message_id.value)
+        data.append(len(packet.payload) & 0xff)
+        data.extend(packet.payload)
 
-        if bool(self.control_field & ControlFieldFlags.CRC16Field):
+        if bool(packet.control_field & ControlFieldFlags.CRC16Field):
             crc = self.crc16(data[1:])
             data.append(crc & 0xff)
             data.append(crc >> 8 & 0xff)
@@ -94,58 +99,74 @@ class IM871:
         return data
 
     def parse(self, data):
-        if data[0] != SOF:
-            print("WARINING! no Start Of Frame found!")
-            return False
+        packets = []
+        offset = 0
 
-        self.control_field = ControlFieldFlags(data[1] >> 4)
-        self.endpoint_id = EndpointID(data[1] & 0x0F)
-        print("Control fields: " + str(self.control_field))
-        print("Endpoint id: " + str(self.endpoint_id))
+        while offset < len(data):
+            packet = Packet()
 
-        if self.endpoint_id == EndpointID.DEVMGMT_ID:
-            self.message_id = DeviceMessageIdentifier(data[2])
-        elif self.endpoint_id == EndpointID.RADIOLINK_ID:
-            self.message_id = RadioLinkMessageIdentifier(data[2])
+            if data[offset] != SOF:
+                print("WARINING! no Start Of Frame found!")
+                continue
 
-        print("Message id: " + str(self.message_id))
+            packet.control_field = ControlFieldFlags(data[ offset + 1] >> 4)
+            packet.endpoint_id = EndpointID(data[offset + 1] & 0x0F)
+            if self.debug:
+                print("Control fields: " + str(packet.control_field))
+                print("Endpoint id: " + str(packet.endpoint_id))
 
-        self.payload_length = data[3]
-        print("Payload length: " + str(self.payload_length))
+            if packet.endpoint_id == EndpointID.DEVMGMT_ID:
+                packet.message_id = DeviceMessageIdentifier(data[offset + 2])
+            elif packet.endpoint_id == EndpointID.RADIOLINK_ID:
+                packet.message_id = RadioLinkMessageIdentifier(data[offset + 2])
 
-        if self.payload_length != 0:
-            self.payload = bytearray(data[4:4 + self.payload_length])
-            print("Payload: " + self.to_hex(self.payload))
+            if self.debug:
+                print("Message id: " + str(packet.message_id))
 
-        length = self.payload_length
-        if bool(ControlFieldFlags.TimeStampField & self.control_field):
-            length += 4
-            self.timestamp = int.from_bytes(data[length: 4 + length], byteorder='little')
-        if bool(ControlFieldFlags.RSSIField & self.control_field):
-            length += 1
-            self.rssi = data[4 + length]
-        if bool(ControlFieldFlags.CRC16Field & self.control_field):
-            packet = data[1:4+length]
-            crc = self.crc16(packet)
-            crcb = data[4+length:4+length+2]
-            crci = int.from_bytes(crcb, byteorder='little')
-            if crc != crci:
-                print("WARNING! CRC does not match!")
-                return False
+            packet.payload_length = data[offset + 3]
+            if self.debug:
+                print("Payload length: " + str(packet.payload_length))
 
-        return True
+            if packet.payload_length != 0:
+                packet.payload = bytearray(data[offset + 4: offset + 4 + packet.payload_length])
+                if self.debug:
+                    print("Payload: " + self.to_hex(packet.payload))
 
-    def get_wmbus_message(self):
-        arr = [self.payload_length]
-        arr.extend(self.payload)
+            length = packet.payload_length
+        
+            if bool(ControlFieldFlags.TimeStampField & packet.control_field):
+                length += 4
+                packet.timestamp = int.from_bytes(data[offset + length: offset + 4 + length], byteorder='little')
+
+            if bool(ControlFieldFlags.RSSIField & packet.control_field):
+                length += 1
+                packet.rssi = data[offset + 4 + length]
+
+            if bool(ControlFieldFlags.CRC16Field & packet.control_field):
+                packetdata = data[offset + 1:offset + 4+length]
+                crc = self.crc16(packetdata)
+                crcb = data[offset + 4+length:offset + 4+length+2]
+                crci = int.from_bytes(crcb, byteorder='little')
+                if crc != crci:
+                    print("WARNING! CRC does not match!")
+                    continue
+                length += 2
+            packets.append(packet)
+            offset += length + 4
+
+        return packets
+
+    def get_wmbus_message(self, packet):
+        arr = [packet.payload_length]
+        arr.extend(packet.payload)
         return bytearray(arr)
 
-    def crc16(self, packet):
+    def crc16(self, packetdata):
         POLY = 0x8408  # 0x8408 is deduced from the polynomial X**16 + X**12 + X**5 + X**0
 
         # process each byte
         crc = 0xFFFF  # init FCS to all ones
-        for byte in packet:
+        for byte in packetdata:
             # process each bit of the current byte
             for x in range(8):
                 if (byte & 1) ^ (crc & 1):
@@ -157,7 +178,7 @@ class IM871:
 
         return crc
 
-    def to_hex(v, split=' '):
+    def to_hex(self, v, split=' '):
         """ Return value in hex form as a string (for pretty printing purposes).
         The function provides a conversion of integers or byte arrays ('B') into
         their hexadecimal form separated by the splitter string

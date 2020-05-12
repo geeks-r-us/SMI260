@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import sys, util
+import sys, util, os
 
 from array import array
 from datetime import datetime
 from Crypto.Cipher import AES
 
-debug = 1
+debug = os.getenv('DEBUG', False)
 
 
 class WMBusFrame:
