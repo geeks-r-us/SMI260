@@ -18,6 +18,7 @@ mqtt_common_topic = "SMI"
 mqtt_client = mqtt.Client(client_id="SMI260MQTTGateway", clean_session=True, userdata=None, protocol=mqtt.MQTTv311)
 
 
+
 def build_mqtt_topic(device, topic):
     return mqtt_common_topic + "/" + device + "/" + topic
 
@@ -34,14 +35,18 @@ def on_connect(client, userdata, flags, rc):
 
     if rc == 0:
         print("Successfully connected to MQTT")
-        userdata.mqtt_connected = True
+        mqtt_client.connected_flag=True
 
         for device in smi_list:
             userdata.device_list[device] = {"Energy": None, "Power": None, "MaxPower": None, "PowerOn": None}
             client.subscribe(build_mqtt_topic(device, "MaxPower/Set"))
             client.subscribe(build_mqtt_topic(device, "PowerOn/Set"))
     else:
-        raise Exception("not connected")
+        print("Bad connection Returned code=",rc)
+
+def on_disconnect(client, userdata, rc):
+    print("disconnecting reason  "  +str(rc))
+    mqtt_client.connected_flag=True
 
 
 def on_message(client, userdata, msg):
@@ -148,12 +153,10 @@ class Communication(asyncio.Protocol):
                 print("--------------------------------------------")
                 message = self.smi.query_state(device)
                 self.transport.write(message)
-                mqtt_client.loop(0.1)    
-                await asyncio.sleep(2)
+                await asyncio.sleep(0.5)
                 message = self.smi.query_settings(device)
                 self.transport.write(message)
-                mqtt_client.loop(0.1)
-                await asyncio.sleep(5)
+                await asyncio.sleep(0.5)
 
             await asyncio.sleep(self.state.poll_every)
 
@@ -201,47 +204,49 @@ class Communication(asyncio.Protocol):
         print(self.transport.get_write_buffer_size())
         print('resume writing')
 
+async def mqtt_task(async_state):
+    mqtt_server = os.getenv('MQTTSERVER', '127.0.0.1')
+    mqtt_port = os.getenv('MQTTSERVERPORT', 1883)
+    print('MQTT Connecting to ' + mqtt_server + ':' + str(mqtt_port))
+    mqtt_client.user_data_set(async_state)
+    mqtt_client.connected_flag=False
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
+    mqtt_client.on_disconnect = on_disconnect
+    mqtt_client.connect(mqtt_server, mqtt_port, 30)
+    mqtt_client.loop_start()
+    while True:
+        await asyncio.sleep(1.0)
 
-async def main():
+
+def main():
     global smi_list, debug
 
     serial_port = os.getenv('SUNSTICKPORT', '/dev/ttyUSB0')
-    mqtt_server = os.getenv('MQTTSERVER', '127.0.0.1')
-    mqtt_port = os.getenv('MQTTSERVERPORT', 1883)
+
     poll_every = int(os.getenv('POLL', 120))
-    smi_list = os.getenv('SMI_LIST', '11491').split(',')
+    smi_list = os.getenv('SMI_LIST', '7981').split(',')
     debug = os.getenv('DEBUG', False)
 
     async_state = type('', (), {})()
-    async_state.mqtt_connected = False
     async_state.device_list = {}
     async_state.transport = None
     async_state.poll_every = poll_every
 
-    print('Connecting to MQTT Server')
-    mqtt_client.user_data_set(async_state)
-    mqtt_client.on_connect = on_connect
-    mqtt_client.on_message = on_message
-    mqtt_client.connect(mqtt_server, mqtt_port, 60)
-    print('Connecting...')
-    transport = None
-    future = None
-    while True:
-        mqtt_client.loop(0.1)
-        if async_state.mqtt_connected and transport is None:
-            protocol = partial(Communication, async_state)
-            loop = asyncio.get_event_loop()
-            transport = serial_asyncio.create_serial_connection(loop, protocol, serial_port, baudrate=57600)
+    loop = asyncio.get_event_loop()
 
-            future = asyncio.ensure_future(transport)
-        
-        if future is not None and future.done() :
-            if future.exception() is not None  and future.exception() is not asyncio.exceptions.InvalidStateError:
-                print(future.exception())
-                loop.stop()
-                quit(-1)
-        
-        await asyncio.sleep(1)
+    # setup serial connection
+    protocol = partial(Communication, async_state)
+    transport = serial_asyncio.create_serial_connection(loop, protocol, serial_port, baudrate=57600)
+    asyncio.ensure_future(transport)
+
+    async_state.transport = transport
+
+    # setup mqtt
+    loop.create_task(mqtt_task(async_state))
+
+    loop.run_forever()
+  
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
