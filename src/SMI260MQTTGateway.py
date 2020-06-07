@@ -85,6 +85,9 @@ def update_topic(data, state):
         device = state.device_list[address]
         if len(data) == 33:
             print("State query result :")
+            print("\tStatus : " + str(frame.header.status))
+            mqtt_client.publish(build_mqtt_topic(address, "Status"), str(frame.header.status))
+
             record = frame.records[0]
             val = record.get_energy_in_wh()
             mqtt_client.publish(build_mqtt_topic(address, "Energy"), str(val))
@@ -94,10 +97,11 @@ def update_topic(data, state):
             record = frame.records[1]
             val = record.get_power_in_w()
             
-            #if maxval and val < (maxval + 5):  # sanitize values, empiric number due to swinging around max point + 5
-            mqtt_client.publish(build_mqtt_topic(address, "Power"), str(val))
-            device["Power"] = val
-            print("\tPower : " + str(val))
+            maxval = device["MaxPower"]
+            if maxval and val < (maxval + 5):  # sanitize values, empiric number due to swinging around max point + 5
+                mqtt_client.publish(build_mqtt_topic(address, "Power"), str(val))
+                device["Power"] = val
+                print("\tPower : " + str(val))
 
         elif len(data) == 93:
             print("Settings query result :")
@@ -156,7 +160,7 @@ class Communication(asyncio.Protocol):
                 await asyncio.sleep(0.5)
                 message = self.smi.query_settings(device)
                 self.transport.write(message)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(2)
 
             await asyncio.sleep(self.state.poll_every)
 
