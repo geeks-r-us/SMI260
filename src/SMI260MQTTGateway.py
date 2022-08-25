@@ -210,9 +210,12 @@ class Communication(asyncio.Protocol):
 
 async def mqtt_task(async_state):
     mqtt_server = os.getenv('MQTTSERVER', '127.0.0.1')
-    mqtt_port = os.getenv('MQTTSERVERPORT', 1883)
+    mqtt_port = int(os.getenv('MQTTSERVERPORT', 1883))
+    mqtt_user = os.getenv('MQTTSERVERUSER', '')
+    mqtt_pass = os.getenv('MQTTSERVERPASS', None)
     print('MQTT Connecting to ' + mqtt_server + ':' + str(mqtt_port))
     mqtt_client.user_data_set(async_state)
+    mqtt_client.username_pw_set(mqtt_user, mqtt_pass)
     mqtt_client.connected_flag=False
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
@@ -224,8 +227,9 @@ async def mqtt_task(async_state):
 
 
 def main():
-    global smi_list, debug
+    global mqtt_common_topic, smi_list, debug
 
+    mqtt_common_topic = os.getenv('MQTTSERVERTOPIC', 'SMI')
     serial_port = os.getenv('SUNSTICKPORT', '/dev/ttyUSB0')
 
     poll_every = int(os.getenv('POLL', 120))
