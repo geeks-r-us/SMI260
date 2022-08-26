@@ -33,6 +33,9 @@ variable | description | default value
 SUNSTICKPORT     | path to the USB stick        | /dev/ttyUSB0
 MQTTSERVER       | IP of the MQTT brocker       | 127.0.0.1
 MQTTSERVERPORT   | port of the MQTT brocker     | 1883
+MQTTSERVERUSER   | user for MQTT authentication | -
+MQTTSERVERPASS   | password for MQTT authentication | -
+MQTTSERVERTOPIC  | MQTT topic the data is published to | SMI
 POLL             | duration to poll in seconds | 120
 SMI_LIST         | comma spearated list of last 4 digits of the inverter | 1234,2345
 DEBUG            | set debug output            | False
